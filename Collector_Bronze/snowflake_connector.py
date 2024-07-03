@@ -1,6 +1,3 @@
-#pip install pandas snowflake-connector-python
-#pip install python-dotenv
-#
 import pandas as pd
 from snowflake.connector import connect
 
@@ -23,13 +20,29 @@ class SnowflakeUploader:
             database=self.database,
             schema=self.schema
         )
+        print(' Snowflake::: Connection created!')
         return conn
+    
+    def test_connection(self):
+        query = f"SELECT * FROM DB_BRONZE_COMPANY.SCH_COLLECTOR_SYSTEM.BASE_VTAS limit 10;"
+        print(query)
+        cursor = self.connection.cursor()
+        try:
+            cursor.execute(query)
+            result = cursor.fetchall()
+            columns = [desc[0] for desc in cursor.description]
+            df = pd.DataFrame(result, columns=columns)
+            print(df)
 
-    def upload_to_snowflake(self, table_name):
-        if not hasattr(self, 'data'):
-            raise ValueError("No data to upload. Please read a CSV file first.")
+        finally:
+            cursor.close()
+
+
+    def upload_to_snowflake(self, table_name, data):
+        '''if not hasattr(self, 'data'):
+            raise ValueError("No data to upload. Please read a CSV file first.")'''
         
-        columns = self.data.columns.tolist()
+        columns = data.columns.tolist()
         columns_str = ", ".join(columns)
 
         # Create a cursor object
@@ -37,15 +50,17 @@ class SnowflakeUploader:
 
         try:
             # Create the table if it doesn't exist
-            '''create_table_query = f"""
-            CREATE OR REPLACE TABLE {table_name} ({", ".join([f"{col} STRING" for col in columns])});
+            create_table_query = f"""
+            CREATE OR REPLACE TABLE {self.database}.{self.schema}.{table_name} ({", ".join([f"{col} STRING" for col in columns])});
             """
+            print(create_table_query)
             cursor.execute(create_table_query)
-            '''
+            
             # Upload data to Snowflake
-            for i, row in self.data.iterrows():
+            for i, row in data.iterrows():
                 values_str = ", ".join([f"'{str(value)}'" for value in row.tolist()])
                 insert_query = f"INSERT INTO {table_name} ({columns_str}) VALUES ({values_str});"
+                print(insert_query)
                 cursor.execute(insert_query)
             
             print(f"Data uploaded successfully to {table_name} in Snowflake.")
@@ -55,29 +70,4 @@ class SnowflakeUploader:
 
     def close_connection(self):
         self.connection.close()
-
-# Uso de la clase
-'''
-if __name__ == "__main__":
-    # Configura tus credenciales de Snowflake
-    user = 'TU_USUARIO'
-    password = 'TU_CONTRASEÑA'
-    account = 'TU_CUENTA'
-    warehouse = 'TU_WAREHOUSE'
-    database = 'TU_DATABASE'
-    schema = 'TU_SCHEMA'
-
-    # Inicializa la clase
-    uploader = SnowflakeUploader(user, password, account, warehouse, database, schema)
-
-    # Lee el archivo CSV
-    csv_file_path = 'ruta/a/tu/archivo.csv'
-    uploader.read_csv(csv_file_path)
-
-    # Sube los datos a Snowflake
-    table_name = 'nombre_de_tu_tabla'
-    uploader.upload_to_snowflake(table_name)
-
-    # Cierra la conexión
-    uploader.close_connection()
-    '''
+        print(' Snowflake::: Snowflake connection closed.')
